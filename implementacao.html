@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIAM (Partner IAM) · Implementação (Spring / Hexagonal)</title>
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("piam-theme");
+                if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                document.documentElement.setAttribute("data-theme", t);
+            } catch (e) {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+        <div class="brand">
+            <h1><span class="dot"></span> PIAM (Partner IAM)</h1>
+            <span class="ver">1.0.0</span>
+        </div>
+        <nav>
+            <div class="group-title">Documentação</div>
+            <a href="index.html">Introdução</a>
+            <a href="autorizacao.html">Autorização de Parceiro</a>
+            <a href="endpoints.html">Endpoints REST</a>
+            <a href="arquitetura.html">Persistência &amp; Acesso (OLTP)</a>
+            <a href="implementacao.html" class="active">Implementação (Spring / Hexagonal)</a>
+
+            <div class="group-title">Nesta página</div>
+            <a href="#visao" class="sub">Abordagem hexagonal</a>
+            <a href="#estrutura" class="sub">Estrutura de pacotes</a>
+            <a href="#dominio" class="sub">Domínio</a>
+            <a href="#portas" class="sub">Portas (application)</a>
+            <a href="#jpa" class="sub">Adaptador de saída (JPA)</a>
+            <a href="#rest" class="sub">Adaptador de entrada (REST)</a>
+        </nav>
+        <div class="theme-switch">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+                <span class="icon" data-theme-icon aria-hidden="true">&#9790;</span>
+                <span class="label">Tema <span data-theme-label>Escuro</span></span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ================= CONTEÚDO ================= -->
+    <main class="content">
+        <h1>Implementação — Spring Boot &amp; Hexagonal</h1>
+        <p class="lead">
+            Como o processo de autorização de parceiro se traduz em código com Spring Boot e Spring
+            Data JPA, seguindo a arquitetura hexagonal (Ports &amp; Adapters). O foco é o caso de uso
+            de <strong>validação de autorização</strong> sobre o modelo OLTP — a emissão do token
+            (Token Exchange) fica a cargo do Axway API Gateway.
+        </p>
+
+        <div class="note warn">
+            <strong>Conteúdo ilustrativo.</strong> Os trechos de código a seguir são exemplos de
+            documentação para orientar a implementação. Não constituem um projeto compilável nem
+            substituem revisão de segurança, tratamento de erros e testes.
+        </div>
+
+        <!-- ---------- Visão ---------- -->
+        <h2 id="visao">Abordagem hexagonal</h2>
+        <p>
+            A arquitetura hexagonal isola o <strong>domínio</strong> e os <strong>casos de uso</strong>
+            das tecnologias de entrega e persistência. O núcleo depende apenas de <em>portas</em>
+            (interfaces); os <em>adaptadores</em> implementam essas portas para o mundo externo.
+        </p>
+        <div class="cards">
+            <div class="card">
+                <h3>domain</h3>
+                <p>Modelo e regras de negócio puras (sem Spring, sem JPA). Ex.: identidade do
+                parceiro, agregação de scopes/canais, regra de bloqueio.</p>
+            </div>
+            <div class="card">
+                <h3>application</h3>
+                <p>Casos de uso e as portas de entrada (use cases) e de saída (repositórios/serviços
+                externos) que o domínio precisa.</p>
+            </div>
+            <div class="card">
+                <h3>adapters</h3>
+                <p><code>in</code>: controllers REST. <code>out</code>: repositórios Spring Data JPA,
+                cliente do IDP. Traduzem entre o mundo externo e as portas.</p>
+            </div>
+        </div>
+
+        <!-- ---------- Estrutura ---------- -->
+        <h2 id="estrutura">Estrutura de pacotes</h2>
+<pre class="tree"><code><span class="cmt">// raiz: com.bank.piam.autorizacao</span>
+com.bank.piam.autorizacao
+├─ <span class="dir">domain</span>
+│  ├─ <span class="pkg">model</span>
+│  │  ├─ <span class="file">Parceiro.java</span>        <span class="cmt">// agregado de identidade + autorizacao</span>
+│  │  ├─ <span class="file">Canal.java</span>
+│  │  ├─ <span class="file">Perfil.java</span>
+│  │  └─ <span class="file">ResultadoAutorizacao.java</span>
+│  └─ <span class="pkg">exception</span>
+│     ├─ <span class="file">ParceiroBloqueadoException.java</span>
+│     └─ <span class="file">IdentidadeNaoEncontradaException.java</span>
+├─ <span class="dir">application</span>
+│  ├─ <span class="pkg">port.in</span>
+│  │  └─ <span class="file">AutorizarParceiroUseCase.java</span>   <span class="cmt">// porta de entrada</span>
+│  ├─ <span class="pkg">port.out</span>
+│  │  └─ <span class="file">AutorizacaoRepositoryPort.java</span>  <span class="cmt">// porta de saida</span>
+│  └─ <span class="pkg">service</span>
+│     └─ <span class="file">AutorizarParceiroService.java</span>   <span class="cmt">// implementa o use case</span>
+└─ <span class="dir">adapters</span>
+   ├─ <span class="pkg">in.rest</span>
+   │  ├─ <span class="file">AutorizacaoController.java</span>
+   │  └─ <span class="file">dto/…</span>
+   └─ <span class="pkg">out.persistence</span>
+      ├─ <span class="file">AutorizacaoJpaAdapter.java</span>     <span class="cmt">// implementa a porta de saida</span>
+      ├─ <span class="pkg">entity</span>                       <span class="cmt">// entidades JPA (@Entity)</span>
+      │  ├─ <span class="file">PessoaEntity.java</span>
+      │  ├─ <span class="file">PessoaIdpEntity.java</span>
+      │  ├─ <span class="file">UsuarioEntity.java</span>
+      │  ├─ <span class="file">CanalEntity.java</span>
+      │  ├─ <span class="file">PerfilEntity.java</span>
+      │  ├─ <span class="file">UsuarioPerfilAcessoEntity.java</span>
+      │  └─ <span class="file">TenantEntity.java</span>
+      └─ <span class="pkg">repository</span>
+         └─ <span class="file">AutorizacaoQueryRepository.java</span></code></pre>
+
+        <!-- ---------- Domínio ---------- -->
+        <h2 id="dominio">Domínio</h2>
+        <p>Modelo de resultado da autorização, sem dependências de framework:</p>
+        <pre><code class="language-java">package com.bank.piam.autorizacao.domain.model;
+
+import java.util.List;
+
+public record ResultadoAutorizacao(
+        String idPessoa,
+        String nomePessoa,
+        String cnpj,
+        String idUsuario,
+        String email,
+        String idpSubjectId,
+        String provedor,
+        String tenant,
+        String tenantAlias,
+        List&lt;String&gt; scopes,
+        List&lt;String&gt; canais
+) {
+    public boolean possuiAcesso() {
+        return scopes != null &amp;&amp; !scopes.isEmpty();
+    }
+}</code></pre>
+
+        <!-- ---------- Portas ---------- -->
+        <h2 id="portas">Portas (application)</h2>
+        <p>Porta de entrada — o caso de uso exposto ao adaptador REST:</p>
+        <pre><code class="language-java">package com.bank.piam.autorizacao.application.port.in;
+
+import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+
+public interface AutorizarParceiroUseCase {
+
+    ResultadoAutorizacao autorizar(ComandoAutorizacao comando);
+
+    record ComandoAutorizacao(String idpSubjectId, String email) {}
+}</code></pre>
+
+        <p>Porta de saída — o que o domínio precisa da persistência (sem citar JPA):</p>
+        <pre><code class="language-java">package com.bank.piam.autorizacao.application.port.out;
+
+import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import java.util.Optional;
+
+public interface AutorizacaoRepositoryPort {
+
+    Optional&lt;ResultadoAutorizacao&gt; buscarPorIdpSubjectEEmail(String idpSubjectId, String email);
+}</code></pre>
+
+        <p>Serviço de aplicação — orquestra a regra de negócio:</p>
+        <pre><code class="language-java">package com.bank.piam.autorizacao.application.service;
+
+import com.bank.piam.autorizacao.application.port.in.AutorizarParceiroUseCase;
+import com.bank.piam.autorizacao.application.port.out.AutorizacaoRepositoryPort;
+import com.bank.piam.autorizacao.domain.exception.IdentidadeNaoEncontradaException;
+import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AutorizarParceiroService implements AutorizarParceiroUseCase {
+
+    private final AutorizacaoRepositoryPort repository;
+
+    public AutorizarParceiroService(AutorizacaoRepositoryPort repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResultadoAutorizacao autorizar(ComandoAutorizacao comando) {
+        return repository
+                .buscarPorIdpSubjectEEmail(comando.idpSubjectId(), comando.email())
+                .filter(ResultadoAutorizacao::possuiAcesso)
+                .orElseThrow(() -&gt; new IdentidadeNaoEncontradaException(comando.idpSubjectId()));
+    }
+}</code></pre>
+
+        <!-- ---------- JPA ---------- -->
+        <h2 id="jpa">Adaptador de saída (Spring Data JPA)</h2>
+        <p>
+            Exemplo de entidade JPA derivada do DDL (ver
+            <a href="arquitetura.html#persistencia">esquema OLTP</a>):
+        </p>
+        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.out.persistence.entity;
+
+import jakarta.persistence.*;
+import java.util.UUID;
+
+@Entity
+@Table(name = "pessoa_idp")
+public class PessoaIdpEntity {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    @Column(name = "id_pessoa", nullable = false)
+    private UUID idPessoa;
+
+    @Column(name = "idp_subject_id", nullable = false, unique = true)
+    private String idpSubjectId;
+
+    @Column(name = "provedor")
+    private String provedor;
+
+    // getters/setters omitidos por brevidade
+}</code></pre>
+
+        <p>Consulta de autorização (agrega scopes e canais) e adaptador que implementa a porta:</p>
+        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.out.persistence.repository;
+
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
+import java.util.Optional;
+
+public interface AutorizacaoQueryRepository extends Repository&lt;Object, Long&gt; {
+
+    // Projecao nativa espelhando a "Consulta de autorizacao" do OLTP.
+    @Query(value = """
+        SELECT pes.id AS id_pessoa, pes.nome AS nome_pessoa, pes.cnpj,
+               u.id AS id_usuario, u.email, u.ativo AS usuario_ativo,
+               idp.idp_subject_id, idp.provedor, t.tenant, t.tenant_alias,
+               COALESCE(STRING_AGG(DISTINCT per.scope, ','), '') AS scopes,
+               COALESCE(STRING_AGG(DISTINCT c.nome, ','), '')  AS canais
+        FROM pessoa_idp idp
+        JOIN pessoa pes ON pes.id = idp.id_pessoa
+        JOIN usuario u ON u.id_pessoa = pes.id
+        LEFT JOIN tenant t ON t.id_pessoa = pes.id
+        LEFT JOIN usuario_perfil_acesso upa ON upa.id_usuario = u.id AND upa.esta_bloqueado = FALSE
+        LEFT JOIN perfil per ON per.id = upa.id_perfil
+        LEFT JOIN canal c ON c.id = per.id_canal
+        WHERE idp.idp_subject_id = :sub AND u.email = :email AND u.ativo = TRUE
+        GROUP BY pes.id, pes.nome, pes.cnpj, u.id, u.email, u.ativo,
+                 idp.idp_subject_id, idp.provedor, t.tenant, t.tenant_alias
+        """, nativeQuery = true)
+    Optional&lt;AutorizacaoView&gt; buscar(@Param("sub") String sub, @Param("email") String email);
+}</code></pre>
+
+        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.out.persistence;
+
+import com.bank.piam.autorizacao.application.port.out.AutorizacaoRepositoryPort;
+import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import org.springframework.stereotype.Component;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+@Component
+public class AutorizacaoJpaAdapter implements AutorizacaoRepositoryPort {
+
+    private final AutorizacaoQueryRepository repository;
+
+    public AutorizacaoJpaAdapter(AutorizacaoQueryRepository repository) {
+        this.repository = repository;
+    }
+
+    @Override
+    public Optional&lt;ResultadoAutorizacao&gt; buscarPorIdpSubjectEEmail(String sub, String email) {
+        return repository.buscar(sub, email).map(v -&gt; new ResultadoAutorizacao(
+                v.getIdPessoa(), v.getNomePessoa(), v.getCnpj(),
+                v.getIdUsuario(), v.getEmail(), v.getIdpSubjectId(), v.getProvedor(),
+                v.getTenant(), v.getTenantAlias(),
+                split(v.getScopes()), split(v.getCanais())
+        ));
+    }
+
+    private static List&lt;String&gt; split(String csv) {
+        return (csv == null || csv.isBlank()) ? List.of() : Arrays.asList(csv.split(","));
+    }
+}</code></pre>
+
+        <!-- ---------- REST ---------- -->
+        <h2 id="rest">Adaptador de entrada (REST)</h2>
+        <div class="note warn">
+            <strong>Responsabilidade.</strong> O <strong>Token Exchange</strong> (emissão do token de
+            aplicação) é feito pelo <strong>Axway API Gateway</strong>, não pelo microsserviço. O
+            endpoint <code>/v1/authorization</code> é uma <em>policy de validação</em> que o gateway
+            consulta: ele apenas valida se o <strong>IDP subject é válido</strong> e se o
+            <strong>e-mail existe</strong>, e devolve os dados de autorização (pessoa, tenant,
+            canais e escopos). O microsserviço <strong>não decodifica o token do IDP nem emite
+            token</strong>.
+        </div>
+        <p>
+            O controller recebe o <code>idp_subject_id</code> (claim <code>sub</code>) e o
+            <code>email</code> — extraídos pelo gateway a partir do token do IDP já validado —, delega
+            ao caso de uso e retorna o resultado da autorização:
+        </p>
+        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.in.rest;
+
+import com.bank.piam.autorizacao.application.port.in.AutorizarParceiroUseCase;
+import com.bank.piam.autorizacao.application.port.in.AutorizarParceiroUseCase.ComandoAutorizacao;
+import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/v1/authorization")
+public class AutorizacaoController {
+
+    private final AutorizarParceiroUseCase useCase;
+
+    public AutorizacaoController(AutorizarParceiroUseCase useCase) {
+        this.useCase = useCase;
+    }
+
+    // Chamado pela policy do Axway. Valida IDP subject + existencia do e-mail
+    // e retorna os dados de autorizacao (nao emite token).
+    @PostMapping("/validate")
+    public AutorizacaoResponse validar(@RequestBody ValidarRequest req) {
+        ResultadoAutorizacao r = useCase.autorizar(
+                new ComandoAutorizacao(req.idpSubjectId(), req.email()));
+        return AutorizacaoResponse.de(r);
+    }
+
+    public record ValidarRequest(String idpSubjectId, String email) {}
+
+    public record AutorizacaoResponse(
+            String idPessoa,
+            String tenant,
+            java.util.List&lt;String&gt; canais,
+            java.util.List&lt;String&gt; scopes
+    ) {
+        static AutorizacaoResponse de(ResultadoAutorizacao r) {
+            return new AutorizacaoResponse(r.idPessoa(), r.tenant(), r.canais(), r.scopes());
+        }
+    }
+}</code></pre>
+        <p>
+            Se o IDP subject não existir, o e-mail não bater ou o acesso estiver bloqueado, o caso de
+            uso lança exceção (mapeada para <span class="pill err">401</span>/<span class="pill err">403</span>),
+            e o gateway não prossegue com a emissão do token.
+        </p>
+
+        <div class="note tip">
+            <strong>Fluxo completo.</strong> Veja o passo a passo de negócio em
+            <a href="autorizacao.html#fluxo">Autorização de Parceiro</a> e o contrato do endpoint em
+            <a href="endpoints.html#token-exchange">Endpoints REST</a>.
+        </div>
+
+        <footer class="docfooter">
+            <span>1.0.0</span>
+            <span>OpenAPIs bank</span>
+        </footer>
+    </main>
+</div>
+<script src="assets/theme.js"></script>
+<script src="assets/java-highlight.js"></script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIAM (Partner IAM) · Endpoints REST</title>
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("piam-theme");
+                if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                document.documentElement.setAttribute("data-theme", t);
+            } catch (e) {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+        <div class="brand">
+            <h1><span class="dot"></span> PIAM (Partner IAM)</h1>
+            <span class="ver">1.0.0</span>
+        </div>
+        <nav>
+            <div class="group-title">Documentação</div>
+            <a href="index.html">Introdução</a>
+            <a href="autorizacao.html">Autorização de Parceiro</a>
+            <a href="endpoints.html" class="active">Endpoints REST</a>
+            <a href="arquitetura.html">Persistência &amp; Acesso (OLTP)</a>
+            <a href="implementacao.html">Implementação (Spring / Hexagonal)</a>
+
+            <div class="group-title">Nesta página</div>
+            <a href="#infra" class="sub">Visão geral</a>
+            <a href="#tenant" class="sub">GET /tenant</a>
+            <a href="#modulos" class="sub">GET /.../{tenant}/modulos</a>
+            <a href="#token-exchange" class="sub">POST /.../exchange</a>
+            <a href="#cruds" class="sub">CRUDs transacionais</a>
+        </nav>
+        <div class="theme-switch">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+                <span class="icon" data-theme-icon aria-hidden="true">&#9790;</span>
+                <span class="label">Tema <span data-theme-label>Escuro</span></span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ================= CONTEÚDO ================= -->
+    <main class="content">
+        <h1>Endpoints REST</h1>
+        <p class="lead">
+            Endpoints da 1.0.0: identificação dinâmica de tenant,
+            módulos contratados por tenant, Token Exchange via Axway API Gateway e os CRUDs
+            transacionais de suporte. As respostas usam JSON.
+        </p>
+
+        <!-- ---------- Infraestrutura & Segurança ---------- -->
+        <h2 id="infra">Infraestrutura &amp; Segurança</h2>
+        <p>
+            Esta seção detalha os endpoints de infraestrutura e segurança responsáveis pela
+            <strong>identificação dinâmica de tenant</strong> e pelo processo de
+            <strong>Token Exchange</strong> via Axway API Gateway para emissão do token final de
+            aplicação.
+        </p>
+
+        <h3 id="tenant">Identificação de tenant</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="path">/tenant</span>
+        </div>
+        <p>
+            Identifica o ambiente do parceiro/cliente com base na URL ou domínio solicitado,
+            retornando as configurações de Portais de Parceiros.
+        </p>
+        <table>
+            <tbody>
+                <tr><th>Autenticação</th><td>Pública (sem token)</td></tr>
+            </tbody>
+        </table>
+
+        <h4>Resposta (200 OK)</h4>
+        <pre><code>{
+  "tenant_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "tenant_domain": "vivo.credito.bank.com.br",
+  "idp": "idp.vivo.com.br",
+  "whitelabel": {
+    "tenant": "vivo",
+    "logo": "https://asset.bank.com.br/vivo/logo.png"
+  }
+}</code></pre>
+
+        <h3 id="modulos">Módulos por tenant</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="path">/v1/tenant/{tenant}/modulos</span>
+        </div>
+        <p>
+            Retorna os módulos/produtos contratados e ativos para o parceiro dono do tenant
+            especificado (baseado na consulta de <code>tenant</code> e
+            <code>produto_contratados</code>).
+        </p>
+
+        <h4>Parâmetros de path</h4>
+        <table>
+            <thead><tr><th>Nome</th><th>Tipo</th><th>Descrição</th></tr></thead>
+            <tbody>
+                <tr><td><code>tenant</code></td><td>string</td><td>Slug do tenant (ex.: <code>cacawshow</code>).</td></tr>
+            </tbody>
+        </table>
+
+        <h4>Consulta SQL subjacente</h4>
+        <pre><code class="language-sql">-- ==========================================
+-- LISTAR PRODUTOS HABILITADOS POR PARCEIROS
+-- ==========================================
+SELECT
+    pes.nome AS parceiro,
+    prod.nome AS produto_contratado,
+    prod.versao,
+    prod.descricao
+FROM produto_contratados pp
+JOIN pessoa pes ON pes.id = pp.id_pessoa
+JOIN produto prod ON prod.id = pp.id_produto
+WHERE pes.nome = 'EuFood' AND pp.ativo = TRUE;</code></pre>
+        <div class="note tip">
+            <strong>Referência.</strong> Esquema e tabelas em
+            <a href="arquitetura.html#persistencia">Persistência &amp; Acesso (OLTP)</a>.
+        </div>
+
+        <h3 id="token-exchange">Autenticação e validação IDP (Token Exchange)</h3>
+        <div class="endpoint">
+            <span class="method post">POST</span>
+            <span class="path">/v1/authorization/</span>
+        </div>
+        <p>
+            Endpoint público exposto pelo <strong>Axway API Gateway</strong>. Recebe o token gerado
+            pelo IDP externo e, com base na validação da identidade, emite o token definitivo da
+            aplicação (o <strong>Token Exchange é executado pelo gateway</strong>).
+        </p>
+        <div class="note">
+            <strong>Papel do microsserviço.</strong> A emissão do token é do Axway. O microsserviço
+            expõe uma <em>policy de validação</em> que o gateway consulta para verificar se o
+            <strong>IDP subject é válido</strong> e se o <strong>e-mail existe</strong>, retornando
+            tenant, canais e escopos. Ver
+            <a href="implementacao.html#rest">Adaptador de entrada (REST)</a>.
+        </div>
+        <table>
+            <tbody>
+                <tr><th>Content-Type</th><td><code>application/x-www-form-urlencoded</code></td></tr>
+            </tbody>
+        </table>
+
+        <h4>Corpo (x-www-form-urlencoded)</h4>
+        <pre><code>grant_type=urn:ietf:params:oauth:grant-type:token-exchange
+subject_token=&lt;JWT_DO_IDP&gt;
+subject_token_type=urn:ietf:params:oauth:token-type:access_token</code></pre>
+
+        <h4>Consulta de autorização (SQL)</h4>
+        <pre><code class="language-sql">-- ==========================================
+-- CONSULTA PARA AUTORIZACAO
+-- ==========================================
+SELECT
+    pes.id AS id_pessoa,
+    pes.nome AS nome_pessoa,
+    pes.cnpj,
+    u.id AS id_usuario,
+    u.email,
+    u.ativo AS usuario_ativo,
+    idp.idp_subject_id,
+    idp.provedor,
+    t.tenant,
+    t.tenant_alias,
+    -- Retorna todos os scopes concatenados em uma única string
+    COALESCE(STRING_AGG(DISTINCT per.scope, ','), '') AS scopes,
+    -- Retorna todos os canais distintos concatenados em uma única string (ex: "whitelabel developer")
+    COALESCE(STRING_AGG(DISTINCT c.nome, ','), '') AS canais
+FROM pessoa_idp idp
+JOIN pessoa pes ON pes.id = idp.id_pessoa
+JOIN usuario u ON u.id_pessoa = pes.id
+LEFT JOIN tenant t ON t.id_pessoa = pes.id
+LEFT JOIN usuario_perfil_acesso upa ON upa.id_usuario = u.id AND upa.esta_bloqueado = FALSE
+LEFT JOIN perfil per ON per.id = upa.id_perfil
+LEFT JOIN canal c ON c.id = per.id_canal
+WHERE idp.idp_subject_id = 'sub-idp-admin-eufood-123'
+  AND u.email = 'admin@eufood.com'
+  AND u.ativo = TRUE
+GROUP BY
+    pes.id, pes.nome, pes.cnpj,
+    u.id, u.email, u.ativo,
+    idp.idp_subject_id, idp.provedor,
+    t.tenant, t.tenant_alias;</code></pre>
+        <div class="note tip">
+            <strong>Referência.</strong> Query também disponível em
+            <a href="arquitetura.html#queries">Persistência &amp; Acesso (OLTP)</a>.
+        </div>
+
+        <h3 id="cruds">CRUDs transacionais</h3>
+        <p>
+            Endpoints de gestão sobre o modelo relacional
+            (<a href="arquitetura.html#persistencia">esquema OLTP</a>). Exclusão é
+            <strong>lógica</strong> (<code>ativo = FALSE</code>) para preservar a integridade
+            transacional.
+        </p>
+
+        <h4>Gerenciamento de pessoas e usuários</h4>
+        <table>
+            <thead><tr><th>Método</th><th>Rota</th><th>Descrição</th></tr></thead>
+            <tbody>
+                <tr><td><span class="method post">POST</span></td><td><code>/v1/pessoas</code></td><td>Cadastra uma nova entidade (pessoa + usuário + regra de IDP opcional).</td></tr>
+                <tr><td><span class="method get">GET</span></td><td><code>/v1/pessoas/{id}</code></td><td>Retorna os dados cadastrais da pessoa e seu vínculo de usuário.</td></tr>
+                <tr><td><span class="method put">PUT</span></td><td><code>/v1/pessoas/{id}</code></td><td>Atualiza informações cadastrais ou altera o status <code>ativo</code>.</td></tr>
+                <tr><td><span class="method del">DELETE</span></td><td><code>/v1/pessoas/{id}</code></td><td>Exclusão lógica (<code>ativo = FALSE</code>), preservando a integridade transacional.</td></tr>
+            </tbody>
+        </table>
+
+        <h4>Gerenciamento de módulos (produtos)</h4>
+        <table>
+            <thead><tr><th>Método</th><th>Rota</th><th>Descrição</th></tr></thead>
+            <tbody>
+                <tr><td><span class="method get">GET</span></td><td><code>/v1/produtos</code></td><td>Lista todos os produtos/módulos disponíveis no sistema (tabela <code>produto</code>).</td></tr>
+                <tr><td><span class="method post">POST</span></td><td><code>/v1/parceiros/{id_parceiro}/produtos</code></td><td>Associa um novo produto contratado ao parceiro (<code>produto_contratados</code>).</td></tr>
+            </tbody>
+        </table>
+
+        <footer class="docfooter">
+            <span>1.0.0</span>
+            <span>OpenAPIs bank</span>
+        </footer>
+    </main>
+</div>
+<script src="assets/theme.js"></script>
+<script src="assets/sql-highlight.js"></script>
+</body>
+</html>

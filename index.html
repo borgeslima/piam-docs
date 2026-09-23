@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIAM (Partner IAM) · Introdução</title>
+    <script>
+        // Anti-flash: aplica o tema salvo (ou preferencia do SO) antes de pintar.
+        (function () {
+            try {
+                var t = localStorage.getItem("piam-theme");
+                if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                document.documentElement.setAttribute("data-theme", t);
+            } catch (e) {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+        <div class="brand">
+            <h1><span class="dot"></span> PIAM (Partner IAM)</h1>
+            <span class="ver">1.0.0</span>
+        </div>
+        <nav>
+            <div class="group-title">Documentação</div>
+            <a href="index.html" class="active">Introdução</a>
+            <a href="autorizacao.html">Autorização de Parceiro</a>
+            <a href="endpoints.html">Endpoints REST</a>
+            <a href="arquitetura.html">Persistência &amp; Acesso (OLTP)</a>
+            <a href="implementacao.html">Implementação (Spring / Hexagonal)</a>
+
+            <div class="group-title">Nesta página</div>
+            <a href="#visao" class="sub">Visão geral</a>
+            <a href="#camadas" class="sub">Camadas da aplicação</a>
+            <a href="#conceitos" class="sub">Conceitos-chave</a>
+            <a href="#navegacao" class="sub">Navegação</a>
+        </nav>
+        <div class="theme-switch">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+                <span class="icon" data-theme-icon aria-hidden="true">&#9790;</span>
+                <span class="label">Tema <span data-theme-label>Escuro</span></span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ================= CONTEÚDO ================= -->
+    <main class="content">
+        <h1>Estratégia de Autorização e Autenticação</h1>
+        <p class="lead">
+            Esta documentação define o fluxo de autenticação e autorização para aplicações parceiras
+            (Portais de Parceiros / Multi-Tenant), combinando a identificação dinâmica de tenant, a federação
+            de identidade via Provedor de Identidade (IDP) e a troca de tokens (Token Exchange) no
+            Axway API Gateway para emissão do token final de aplicação com claims enriquecidas.
+        </p>
+
+        <!-- ---------- Visão geral ---------- -->
+        <h2 id="visao">Visão geral</h2>
+        <p>
+            O microsserviço identifica o ambiente do parceiro/cliente (tenant), faz a ponte com o
+            IDP externo através do IDP Subject (claim <code>sub</code>), valida a identidade contra o
+            banco transacional e emite o token definitivo da aplicação. O controle de acesso é
+            sustentado por um modelo relacional (OLTP) que unifica pessoas, usuários,
+            relacionamentos, autorizações de IDP, tenants e produtos contratados.
+        </p>
+
+        <!-- ---------- Camadas ---------- -->
+        <h2 id="camadas">Camadas da aplicação</h2>
+        <p>
+            A arquitetura é dividida em três camadas principais para garantir desacoplamento,
+            segurança e facilidade de manutenção.
+        </p>
+        <div class="cards">
+            <div class="card">
+                <h3>Persistência (Banco de Dados)</h3>
+                <p>Mantém a integridade transacional de entidades unificadas
+                (<code>pessoa</code>, <code>usuario</code>), credenciais de IDP
+                (<code>pessoa_idp</code>), controle de acesso por canal/perfil
+                (<code>canal</code>, <code>perfil</code>, <code>usuario_perfil_acesso</code>) e o
+                ecossistema multi-tenant (<code>tenant</code> e
+                <code>produto_contratados</code>).</p>
+            </div>
+            <div class="card">
+                <h3>Regras de Negócio e Serviços (API)</h3>
+                <p>Processa a resolução de tenant, faz a ponte com o IDP através do IDP Subject
+                (<code>sub</code>), valida status de bloqueio e gerencia os contratos de produtos por
+                parceiro.</p>
+            </div>
+            <div class="card">
+                <h3>Exposição / Gateway (Axway)</h3>
+                <p>Ponto de entrada que valida tokens JWT, intercepta chamadas públicas de tenant e
+                orquestra o Token Exchange para as APIs protegidas.</p>
+            </div>
+        </div>
+
+        <!-- ---------- Conceitos ---------- -->
+        <h2 id="conceitos">Conceitos-chave</h2>
+        <table>
+            <thead><tr><th>Conceito</th><th>Descrição</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Tenant</strong></td><td>Ambiente Portais de Parceiros de um parceiro, resolvido dinamicamente por domínio/URL.</td></tr>
+                <tr><td><strong>IDP Subject</strong></td><td>Identificador único do usuário no provedor de identidade externo (claim <code>sub</code>), base para a validação.</td></tr>
+                <tr><td><strong>Token Exchange</strong></td><td>Troca do token do IDP externo pelo token definitivo da aplicação, orquestrada pelo Axway.</td></tr>
+                <tr><td><strong>Perfil</strong></td><td>Determinação de <code>PARCEIRO</code> ou <code>OPERADOR</code> a partir dos relacionamentos no banco.</td></tr>
+                <tr><td><strong>Kill-switch</strong></td><td>Bloqueio local do acesso via <code>esta_bloqueado</code>, independente do IDP externo.</td></tr>
+            </tbody>
+        </table>
+
+        <!-- ---------- Navegação ---------- -->
+        <h2 id="navegacao">Navegação</h2>
+        <div class="cards">
+            <div class="card">
+                <h3><a href="endpoints.html">Endpoints REST</a></h3>
+                <p>Identificação de tenant, módulos por tenant, Token Exchange e CRUDs
+                transacionais, com exemplos e queries SQL subjacentes.</p>
+            </div>
+            <div class="card">
+                <h3><a href="arquitetura.html">Persistência &amp; Acesso (OLTP)</a></h3>
+                <p>Camadas da aplicação, esquema do banco (DDL), seeds de teste e as queries de
+                apoio para módulos e validação de login.</p>
+            </div>
+        </div>
+
+        <footer class="docfooter">
+            <span>1.0.0</span>
+            <span>OpenAPIs bank</span>
+        </footer>
+    </main>
+</div>
+<script src="assets/theme.js"></script>
+</body>
+</html>

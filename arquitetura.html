@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIAM (Partner IAM) · Persistência &amp; Acesso (OLTP)</title>
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("piam-theme");
+                if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                document.documentElement.setAttribute("data-theme", t);
+            } catch (e) {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+        <div class="brand">
+            <h1><span class="dot"></span> PIAM (Partner IAM)</h1>
+            <span class="ver">1.0.0</span>
+        </div>
+        <nav>
+            <div class="group-title">Documentação</div>
+            <a href="index.html">Introdução</a>
+            <a href="autorizacao.html">Autorização de Parceiro</a>
+            <a href="endpoints.html">Endpoints REST</a>
+            <a href="arquitetura.html" class="active">Persistência &amp; Acesso (OLTP)</a>
+            <a href="implementacao.html">Implementação (Spring / Hexagonal)</a>
+
+            <div class="group-title">Nesta página</div>
+            <a href="#camadas" class="sub">Camadas da aplicação</a>
+            <a href="#persistencia" class="sub">Esquema do banco (DDL)</a>
+            <a href="#seeds" class="sub">Seeds de teste</a>
+            <a href="#queries" class="sub">Queries de apoio</a>
+        </nav>
+        <div class="theme-switch">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
+                <span class="icon" data-theme-icon aria-hidden="true">&#9790;</span>
+                <span class="label">Tema <span data-theme-label>Escuro</span></span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ================= CONTEÚDO ================= -->
+    <main class="content">
+        <h1>Arquitetura de Persistência e Controle de Acesso (OLTP)</h1>
+        <p class="lead">
+            Modelo relacional transacional que sustenta a identificação de tenant, a federação de
+            identidade (IDP Subject) e o controle de acesso multicanal (perfis e escopos) do
+            ecossistema multi-tenant Portais de Parceiros.
+        </p>
+
+        <!-- ---------- Camadas ---------- -->
+        <h2 id="camadas">1. Camadas da aplicação</h2>
+        <p>
+            A arquitetura do microsserviço é dividida em três camadas principais para garantir
+            desacoplamento, segurança e facilidade de manutenção.
+        </p>
+        <div class="cards">
+            <div class="card">
+                <h3>Persistência (Banco de Dados)</h3>
+                <p>Mantém a integridade transacional de entidades unificadas
+                (<code>pessoa</code>, <code>usuario</code>), credenciais de IDP
+                (<code>pessoa_idp</code>), controle de acesso por canal/perfil
+                (<code>canal</code>, <code>perfil</code>, <code>usuario_perfil_acesso</code>),
+                vínculos hierárquicos (<code>pessoa_relacionamento</code>) e o ecossistema
+                multi-tenant (<code>tenant</code> e <code>produto_contratados</code>).</p>
+            </div>
+            <div class="card">
+                <h3>Regras de Negócio e Serviços (API)</h3>
+                <p>Processa a resolução de tenant, faz a ponte com o Provedor de Identidade (IDP)
+                através do IDP Subject (<code>sub</code>), valida status de bloqueio e resolve os
+                perfis/escopos do usuário por canal.</p>
+            </div>
+            <div class="card">
+                <h3>Exposição / Gateway (Axway)</h3>
+                <p>Ponto de entrada que valida tokens JWT, intercepta chamadas públicas de tenant e
+                orquestra o Token Exchange para as APIs protegidas.</p>
+            </div>
+        </div>
+
+        <!-- ---------- DDL ---------- -->
+        <h2 id="persistencia">2. Esquema do banco de dados (DDL)</h2>
+        <p>
+            O DDL abaixo define o modelo relacional transacional atualizado, incluindo pessoa,
+            credenciais de IDP, usuários, canais, perfis/escopos, atribuições de acesso,
+            relacionamentos, produtos, tenants e produtos contratados. O bloco inicial de
+            <code>DROP ... CASCADE</code> garante a recriação limpa na ordem correta.
+        </p>
+        <pre><code class="language-sql">-- ==========================================
+-- 0. DROP CASCADE DAS TABELAS (Limpeza inicial na ordem correta)
+-- ==========================================
+DROP TABLE IF EXISTS produto_contratados CASCADE;
+DROP TABLE IF EXISTS tenant CASCADE;
+DROP TABLE IF EXISTS produto CASCADE;
+DROP TABLE IF EXISTS pessoa_relacionamento CASCADE;
+DROP TABLE IF EXISTS usuario_perfil_acesso CASCADE;
+DROP TABLE IF EXISTS perfil CASCADE;
+DROP TABLE IF EXISTS canal CASCADE;
+DROP TABLE IF EXISTS usuario CASCADE;
+DROP TABLE IF EXISTS pessoa_idp CASCADE;
+DROP TABLE IF EXISTS pessoa CASCADE;
+
+-- ==========================================
+-- 1. EXTENSÕES
+-- ==========================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ==========================================
+-- 2. PESSOA (Unifica Parceiro, Cliente e Operador em uma única entidade)
+-- ==========================================
+CREATE TABLE pessoa (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    nome VARCHAR(80) NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    cnpj VARCHAR(14) NULL,
+    CONSTRAINT "PK_pessoa" PRIMARY KEY (id)
+);
+
+-- ==========================================
+-- 3. CREDENCIAIS IDP (Exclusivo na Pessoa - Ex: Parceiro)
+-- ==========================================
+CREATE TABLE pessoa_idp (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id_pessoa UUID NOT NULL,                            -- Vinculado diretamente à pessoa
+    idp_subject_id VARCHAR(255) NOT NULL UNIQUE,        -- Identificador único no IDP (claim 'sub')
+    provedor VARCHAR(50) DEFAULT 'COGNITO',            -- Opcional: para identificar o provedor
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PK_pessoa_idp" PRIMARY KEY (id),
+    CONSTRAINT "FK_pessoa_idp_pessoa" FOREIGN KEY (id_pessoa) REFERENCES pessoa (id) ON DELETE CASCADE,
+    CONSTRAINT "UQ_pessoa_idp_pessoa" UNIQUE (id_pessoa)
+);
+
+CREATE INDEX idx_idp_subject ON pessoa_idp(idp_subject_id);
+CREATE INDEX idx_pessoa_idp_pessoa ON pessoa_idp(id_pessoa);
+
+-- ==========================================
+-- 4. USUÁRIO (Gestão interna/contatos)
+-- ==========================================
+CREATE TABLE usuario (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id_pessoa UUID NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    CONSTRAINT "PK_usuario" PRIMARY KEY (id),
+    CONSTRAINT "FK_usuario_pessoa" FOREIGN KEY (id_pessoa) REFERENCES pessoa (id),
+    CONSTRAINT "UQ_usuario_email" UNIQUE (email)
+);
+
+CREATE INDEX idx_usuario_pessoa ON usuario(id_pessoa);
+
+-- ==========================================
+-- 5. CANAL (Tabela separada para os tipos de canais)
+-- ==========================================
+CREATE TABLE canal (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    nome VARCHAR(50) NOT NULL UNIQUE,                   -- Ex: 'whitelabel', 'developer'
+    descricao VARCHAR(100) NULL,                        -- Ex: 'Canal Portal WhiteLabel'
+    ativo BOOLEAN DEFAULT TRUE,
+    CONSTRAINT "PK_canal" PRIMARY KEY (id)
+);
+
+-- ==========================================
+-- 6. PERFIL DE ACESSO (Catálogo de Perfis e Escopos vinculado ao Canal)
+-- ==========================================
+CREATE TABLE perfil (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id_canal UUID NOT NULL,                             -- Referência à tabela canal
+    nome VARCHAR(50) NOT NULL,                          -- Ex: 'Admin', 'Operador', 'Consumidor'
+    descricao VARCHAR(100) NOT NULL,                    -- Ex: 'Administrador WhiteLabel'
+    scope VARCHAR(150) NOT NULL UNIQUE,                 -- Ex: 'baas:portal-whitelabel:admin'
+    ativo BOOLEAN DEFAULT TRUE,
+    CONSTRAINT "PK_perfil" PRIMARY KEY (id),
+    CONSTRAINT "FK_perfil_canal" FOREIGN KEY (id_canal) REFERENCES canal (id) ON DELETE CASCADE,
+    CONSTRAINT "UQ_perfil_scope" UNIQUE (scope)
+);
+
+CREATE INDEX idx_perfil_canal ON perfil(id_canal);
+
+-- ==========================================
+-- 7. VÍNCULO DE PERFIL DO USUÁRIO (Atribuição)
+-- ==========================================
+CREATE TABLE usuario_perfil_acesso (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id_usuario UUID NOT NULL,                           -- Vinculado ao usuário específico
+    id_perfil UUID NOT NULL,                            -- Referência ao catálogo de perfis/escopos
+    esta_bloqueado BOOLEAN DEFAULT FALSE,               -- Kill-switch local do acesso do usuário
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PK_usuario_perfil_acesso" PRIMARY KEY (id),
+    CONSTRAINT "FK_perfil_usuario" FOREIGN KEY (id_usuario) REFERENCES usuario (id) ON DELETE CASCADE,
+    CONSTRAINT "FK_perfil_catalogo" FOREIGN KEY (id_perfil) REFERENCES perfil (id),
+    CONSTRAINT "UQ_usuario_perfil" UNIQUE (id_usuario, id_perfil)
+);
+
+CREATE INDEX idx_usuario_perfil_usuario ON usuario_perfil_acesso(id_usuario);
+
+-- ==========================================
+-- 8. RELAÇÃO ENTRE PESSOAS (Hierarquia: Parceiro -> Cliente, Operador -> Cliente)
+-- ==========================================
+CREATE TABLE pessoa_relacionamento (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id_origem UUID NOT NULL,   -- Ex: O Parceiro ou o Operador
+    id_destino UUID NOT NULL,  -- Ex: O Cliente / Estabelecimento
+    tipo VARCHAR(50) NOT NULL, -- Ex: 'PARCEIRO_CLIENTE', 'OPERADOR_CLIENTE'
+    CONSTRAINT "PK_pessoa_relacionamento" PRIMARY KEY (id),
+    CONSTRAINT "FK_relacionamento_origem" FOREIGN KEY (id_origem) REFERENCES pessoa (id),
+    CONSTRAINT "FK_relacionamento_destino" FOREIGN KEY (id_destino) REFERENCES pessoa (id),
+    CONSTRAINT "UQ_pessoa_relacionamento" UNIQUE (id_origem, id_destino, tipo)
+);
+
+-- ==========================================
+-- 9. PRODUTOS DISPONÍVEIS NO SISTEMA
+-- ==========================================
+CREATE TABLE produto (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    nome VARCHAR(100) NOT NULL,
+    descricao TEXT NULL,
+    versao VARCHAR(20) NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    CONSTRAINT "PK_produto" PRIMARY KEY (id)
+);
+
+-- ==========================================
+-- 10. CONFIGURAÇÕES DO TENANT POR PARCEIRO
+-- ==========================================
+CREATE TABLE tenant (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id_pessoa UUID NOT NULL,              -- Referência à pessoa (o parceiro)
+    tenant VARCHAR(100) NOT NULL,         -- Ex: 'cacawshow'
+    tenant_alias VARCHAR(150) NOT NULL,   -- Ex: 'cacahow+id-parceiro'
+    ativo BOOLEAN DEFAULT TRUE,
+    CONSTRAINT "PK_tenant" PRIMARY KEY (id),
+    CONSTRAINT "FK_tenant_pessoa" FOREIGN KEY (id_pessoa) REFERENCES pessoa (id),
+    CONSTRAINT "UQ_tenant_pessoa" UNIQUE (id_pessoa),
+    CONSTRAINT "UQ_tenant_nome" UNIQUE (tenant)
+);
+
+-- ==========================================
+-- 11. PRODUTOS CONTRATADOS PELO PARCEIRO (Nome corrigido para produto_contratados)
+-- ==========================================
+CREATE TABLE produto_contratados (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    id_pessoa UUID NOT NULL,              -- Referência à pessoa (o parceiro)
+    id_produto UUID NOT NULL,             -- Referência ao produto contratado
+    ativo BOOLEAN DEFAULT TRUE,
+    CONSTRAINT "PK_produto_contratados" PRIMARY KEY (id),
+    CONSTRAINT "FK_produto_contratados_pessoa" FOREIGN KEY (id_pessoa) REFERENCES pessoa (id),
+    CONSTRAINT "FK_produto_contratados_produto" FOREIGN KEY (id_produto) REFERENCES produto (id),
+    CONSTRAINT "UQ_produto_contratados" UNIQUE (id_pessoa, id_produto)
+);</code></pre>
+
+        <h3>Principais entidades</h3>
+        <table>
+            <thead><tr><th>Tabela</th><th>Responsabilidade</th></tr></thead>
+            <tbody>
+                <tr><td><code>pessoa</code></td><td>Entidade unificada para Parceiro, Cliente e Operador.</td></tr>
+                <tr><td><code>pessoa_idp</code></td><td>Credenciais de IDP da pessoa (<code>idp_subject_id</code>, <code>provedor</code>), uma por pessoa.</td></tr>
+                <tr><td><code>usuario</code></td><td>Usuário de gestão/contato vinculado a uma pessoa (e-mail único).</td></tr>
+                <tr><td><code>canal</code></td><td>Canais de acesso (ex.: <code>whitelabel</code>, <code>developer</code>).</td></tr>
+                <tr><td><code>perfil</code></td><td>Catálogo de perfis e escopos (<code>scope</code>) vinculados a um canal.</td></tr>
+                <tr><td><code>usuario_perfil_acesso</code></td><td>Atribuição de perfis ao usuário, com <em>kill-switch</em> (<code>esta_bloqueado</code>).</td></tr>
+                <tr><td><code>pessoa_relacionamento</code></td><td>Hierarquia entre pessoas (<code>PARCEIRO_CLIENTE</code>, <code>OPERADOR_CLIENTE</code>).</td></tr>
+                <tr><td><code>produto</code></td><td>Catálogo de produtos/módulos disponíveis no sistema.</td></tr>
+                <tr><td><code>tenant</code></td><td>Configuração de tenant (Portais de Parceiros) por pessoa/parceiro.</td></tr>
+                <tr><td><code>produto_contratados</code></td><td>Produtos contratados/ativos por pessoa/parceiro.</td></tr>
+            </tbody>
+        </table>
+
+        <!-- ---------- Seeds ---------- -->
+        <h2 id="seeds">3. Seeds / população de dados de teste</h2>
+        <pre><code class="language-sql">-- 1. Cadastrando Pessoas
+INSERT INTO pessoa (id, nome, ativo, cnpj) VALUES
+('e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', 'EuFood', TRUE, '18120830000125'),
+('f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a66', 'Restaurante Central', TRUE, '18120830000126'),
+('a1eebc99-9c0b-4ef8-bb6d-6bb9bd380a77', 'Pizzaria 10', TRUE, '18120830000127'),
+('d4eebc99-9c0b-4ef8-bb6d-6bb9bd380b11', 'Carlos Operador', TRUE, NULL),
+('e5eebc99-9c0b-4ef8-bb6d-6bb9bd380b22', 'Mariana Atendente', TRUE, NULL);
+
+-- 2. Cadastrando IDP da Pessoa (Exclusivo para o Parceiro EuFood)
+INSERT INTO pessoa_idp (id, id_pessoa, idp_subject_id, provedor) VALUES
+(gen_random_uuid(), 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', 'sub-idp-admin-eufood-123', 'COGNITO');
+
+-- 3. Cadastrando Usuários
+INSERT INTO usuario (id, id_pessoa, email, ativo) VALUES
+('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380c01', 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', 'admin@eufood.com', TRUE),
+('b2eebc99-9c0b-4ef8-bb6d-6bb9bd380c02', 'f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a66', 'contato@restaurantecentral.com', TRUE),
+('b3eebc99-9c0b-4ef8-bb6d-6bb9bd380a77', 'a1eebc99-9c0b-4ef8-bb6d-6bb9bd380a77', 'contato@pizzaria10.com', TRUE),
+('b4eebc99-9c0b-4ef8-bb6d-6bb9bd380c04', 'd4eebc99-9c0b-4ef8-bb6d-6bb9bd380b11', 'carlos.operador@email.com', TRUE),
+('b5eebc99-9c0b-4ef8-bb6d-6bb9bd380c05', 'e5eebc99-9c0b-4ef8-bb6d-6bb9bd380b22', 'mariana.atendente@email.com', TRUE);
+
+-- 4. Cadastrando os Canais
+INSERT INTO canal (id, nome, descricao, ativo) VALUES
+('aa11bc99-9c0b-4ef8-bb6d-6bb9bd380991', 'whitelabel', 'Portal WhiteLabel', TRUE),
+('aa22bc99-9c0b-4ef8-bb6d-6bb9bd380992', 'developer', 'Portal Developer', TRUE);
+
+-- 5. Cadastrando os Perfis de Acesso vinculados aos respectivos canais
+INSERT INTO perfil (id, id_canal, nome, descricao, scope) VALUES
+-- Portal WhiteLabel
+('c1eebc99-9c0b-4ef8-bb6d-6bb9bd380d01', 'aa11bc99-9c0b-4ef8-bb6d-6bb9bd380991', 'Admin', 'Administrador WhiteLabel', 'baas:portal-whitelabel:admin'),
+('c2eebc99-9c0b-4ef8-bb6d-6bb9bd380d02', 'aa11bc99-9c0b-4ef8-bb6d-6bb9bd380991', 'Operador', 'Operador WhiteLabel', 'baas:portal-whitelabel:operador'),
+('c3eebc99-9c0b-4ef8-bb6d-6bb9bd380d03', 'aa11bc99-9c0b-4ef8-bb6d-6bb9bd380991', 'Consumidor', 'ConsumidorWhiteLabel', 'baas:portal-whitelabel:consumer'),
+-- Portal Developer
+('c4eebc99-9c0b-4ef8-bb6d-6bb9bd380d04', 'aa22bc99-9c0b-4ef8-bb6d-6bb9bd380992', 'Admin', 'Administrador developer', 'baas:portal-developer:admin'),
+('c5eebc99-9c0b-4ef8-bb6d-6bb9bd380d05', 'aa22bc99-9c0b-4ef8-bb6d-6bb9bd380992', 'Operador', 'Operador developer', 'baas:portal-developer:developer'),
+('c6eebc99-9c0b-4ef8-bb6d-6bb9bd380d06', 'aa22bc99-9c0b-4ef8-bb6d-6bb9bd380992', 'Consumidor', 'ConsumidorWhiteLabel', 'baas:portal-developer:consumer');
+
+-- 6. Atribuindo Perfis ao Usuário (Ex: O mesmo usuário admin do EuFood possuindo perfis em MÚLTIPLOS canais)
+INSERT INTO usuario_perfil_acesso (id, id_usuario, id_perfil, esta_bloqueado) VALUES
+(gen_random_uuid(), 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380c01', 'c1eebc99-9c0b-4ef8-bb6d-6bb9bd380d01', FALSE), -- Admin WhiteLabel
+(gen_random_uuid(), 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380c01', 'c4eebc99-9c0b-4ef8-bb6d-6bb9bd380d04', FALSE); -- Admin Developer
+
+-- 7. Vínculos Genéricos (Hierarquia)
+INSERT INTO pessoa_relacionamento (id, id_origem, id_destino, tipo) VALUES
+(gen_random_uuid(), 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', 'f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a66', 'PARCEIRO_CLIENTE'),
+(gen_random_uuid(), 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', 'a1eebc99-9c0b-4ef8-bb6d-6bb9bd380a77', 'PARCEIRO_CLIENTE');
+
+-- 8. Cadastrando Produtos Disponíveis
+INSERT INTO produto (id, nome, descricao, versao, ativo) VALUES
+('11eebc99-9c0b-4ef8-bb6d-6bb9bd380001', 'CAP-GIRO', 'Credito de Capital de Giro', 'v1.1.0', TRUE),
+('22eebc99-9c0b-4ef8-bb6d-6bb9bd380002', 'CRED-EMERGENCIAL', 'Credito emergencial', 'v1.1.0', TRUE);
+
+-- 9. Configuração de Tenant do Parceiro
+INSERT INTO tenant (id, id_pessoa, tenant, tenant_alias, ativo) VALUES
+(gen_random_uuid(), 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', 'cacawshow', 'cacahow-e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', TRUE);
+
+-- 10. Vinculando Produtos ao Parceiro (Usando a tabela correta produto_contratados)
+INSERT INTO produto_contratados (id, id_pessoa, id_produto, ativo) VALUES
+(gen_random_uuid(), 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '11eebc99-9c0b-4ef8-bb6d-6bb9bd380001', TRUE),
+(gen_random_uuid(), 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55', '22eebc99-9c0b-4ef8-bb6d-6bb9bd380002', TRUE);</code></pre>
+
+        <!-- ---------- Queries ---------- -->
+        <h2 id="queries">4. Queries de apoio</h2>
+        <p>
+            Consultas usadas pela camada de regras de negócio. Os endpoints correspondentes estão
+            documentados em <a href="endpoints.html#infra">Endpoints REST</a>.
+        </p>
+
+        <h3>Produtos habilitados por parceiro</h3>
+        <p>
+            Lista os produtos contratados e ativos de um parceiro, base do endpoint de módulos por
+            tenant.
+        </p>
+        <pre><code class="language-sql">SELECT
+    pes.nome AS parceiro,
+    prod.nome AS produto_contratado,
+    prod.versao,
+    prod.descricao
+FROM produto_contratados pp
+JOIN pessoa pes ON pes.id = pp.id_pessoa
+JOIN produto prod ON prod.id = pp.id_produto
+WHERE pes.nome = 'EuFood' AND pp.ativo = TRUE;</code></pre>
+
+        <h3>Consulta de autorização (Token Exchange)</h3>
+        <p>
+            Executada pela policy do microsserviço durante o
+            <code>POST /v1/authorization/</code>: a partir do <code>idp_subject_id</code>
+            (claim <code>sub</code>) e do e-mail, resolve pessoa, usuário, tenant e agrega todos os
+            <code>scopes</code> e <code>canais</code> do usuário em strings únicas.
+        </p>
+        <pre><code class="language-sql">SELECT
+    pes.id AS id_pessoa,
+    pes.nome AS nome_pessoa,
+    pes.cnpj,
+    u.id AS id_usuario,
+    u.email,
+    u.ativo AS usuario_ativo,
+    idp.idp_subject_id,
+    idp.provedor,
+    t.tenant,
+    t.tenant_alias,
+    -- Retorna todos os scopes concatenados em uma única string
+    COALESCE(STRING_AGG(DISTINCT per.scope, ','), '') AS scopes,
+    -- Retorna todos os canais distintos concatenados em uma única string (ex: "whitelabel developer")
+    COALESCE(STRING_AGG(DISTINCT c.nome, ','), '') AS canais
+FROM pessoa_idp idp
+JOIN pessoa pes ON pes.id = idp.id_pessoa
+JOIN usuario u ON u.id_pessoa = pes.id
+LEFT JOIN tenant t ON t.id_pessoa = pes.id
+LEFT JOIN usuario_perfil_acesso upa ON upa.id_usuario = u.id AND upa.esta_bloqueado = FALSE
+LEFT JOIN perfil per ON per.id = upa.id_perfil
+LEFT JOIN canal c ON c.id = per.id_canal
+WHERE idp.idp_subject_id = 'sub-idp-admin-eufood-123'
+  AND u.email = 'admin@eufood.com'
+  AND u.ativo = TRUE
+GROUP BY
+    pes.id, pes.nome, pes.cnpj,
+    u.id, u.email, u.ativo,
+    idp.idp_subject_id, idp.provedor,
+    t.tenant, t.tenant_alias;</code></pre>
+
+        <footer class="docfooter">
+            <span>1.0.0</span>
+            <span>OpenAPIs bank</span>
+        </footer>
+    </main>
+</div>
+<script src="assets/theme.js"></script>
+<script src="assets/sql-highlight.js"></script>
+</body>
+</html>
