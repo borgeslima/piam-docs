@@ -1,7 +1,7 @@
 # partner-authorization-docs
 
 ## Purpose
-Documentação estática (HTML/CSS) do processo de autorização de parceiro do BIAM (Partner IAM), incluindo tema claro/escuro, referências normativas (RFCs) e uma área ilustrativa de implementação em Spring Boot com arquitetura hexagonal. Escopo restrito a documentação; nenhum backend executável.
+Documentação estática (HTML/CSS) do processo de autorização de parceiro do BIAM (PIAM), incluindo tema claro/escuro, referências normativas (RFCs) e uma área ilustrativa de implementação em Spring Boot com arquitetura hexagonal. Escopo restrito a documentação; nenhum backend executável.
 
 ## Requirements
 

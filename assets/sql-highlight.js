@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BIAM (Partner IAM) — realce de sintaxe SQL (leve, sem dependencias)
+   BIAM (PIAM) — realce de sintaxe SQL (leve, sem dependencias)
    Aplica-se a blocos <code class="language-sql">. Palavras-chave em verde;
    comentarios e literais recebem classes proprias.
    Estrategia: uma unica passada com regex combinada (single-scan tokenizer),

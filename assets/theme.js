@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BIAM (Partner IAM) — alternancia de tema claro/escuro
+   BIAM (PIAM) — alternancia de tema claro/escuro
    Persiste a escolha em localStorage; respeita prefers-color-scheme por padrao.
    O tema inicial e aplicado por um script inline no <head> (anti-flash).
    ========================================================================== */

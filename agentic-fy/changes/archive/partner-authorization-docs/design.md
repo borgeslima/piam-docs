@@ -3,7 +3,7 @@
 ## Context
 - Site de documentação estático em `docs/`: `index.html` (introdução), `endpoints.html`,
   `arquitetura.html` (OLTP), com `assets/style.css` compartilhado. Marca atual:
-  **BIAM (Partner IAM)**.
+  **BIAM (PIAM)**.
 - O CSS já centraliza cores em `:root` (variáveis CSS), o que facilita adicionar um tema
   claro via seletor de atributo sem reescrever regras.
 - Restrição do usuário: **apenas documentação**. Os exemplos Spring Boot são conteúdo

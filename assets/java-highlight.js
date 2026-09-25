@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BIAM (Partner IAM) — realce de sintaxe Java (leve, sem dependencias)
+   BIAM (PIAM) — realce de sintaxe Java (leve, sem dependencias)
    Aplica-se a blocos <code class="language-java">.
    Estrategia: uma unica passada com regex combinada (single-scan tokenizer).
    Cada token e classificado no callback, entao nao ha reprocessamento nem

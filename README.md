@@ -1,4 +1,4 @@
-# BIAM (Partner IAM) — Documentação
+# BIAM (PIAM) — Documentação
 
 Documentação da **Estratégia de Autorização e Autenticação** para
 aplicações parceiras (Portais de Parceiros / Multi-Tenant, White Label).

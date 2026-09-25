@@ -1,7 +1,7 @@
 # Proposal — partner-authorization-docs
 
 ## Why
-A documentação BIAM (Partner IAM) hoje cobre endpoints e persistência (OLTP), mas
+A documentação BIAM (PIAM) hoje cobre endpoints e persistência (OLTP), mas
 falta uma página que descreva de ponta a ponta o **processo de autorização de parceiro**
 (identificação de tenant → autenticação SSO/IDP → Token Exchange → emissão do token de
 aplicação com scopes/canais). Além disso, o site é apenas dark, o layout pode ser mais
