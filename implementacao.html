@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIAM (Partner IAM) · Implementação (Spring / Hexagonal)</title>
+    <title>BIAM (Partner IAM) · Implementação (Spring / Hexagonal)</title>
     <script>
         (function () {
             try {
-                var t = localStorage.getItem("piam-theme");
+                var t = localStorage.getItem("BIAM-theme");
                 if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
                 document.documentElement.setAttribute("data-theme", t);
             } catch (e) {
@@ -23,7 +23,7 @@
     <!-- ================= SIDEBAR ================= -->
     <aside class="sidebar">
         <div class="brand">
-            <h1><span class="dot"></span> PIAM (Partner IAM)</h1>
+            <h1><span class="dot"></span> BIAM (Partner IAM)</h1>
             <span class="ver">1.0.0</span>
         </div>
         <nav>
@@ -93,8 +93,8 @@
 
         <!-- ---------- Estrutura ---------- -->
         <h2 id="estrutura">Estrutura de pacotes</h2>
-<pre class="tree"><code><span class="cmt">// raiz: com.bank.piam.autorizacao</span>
-com.bank.piam.autorizacao
+<pre class="tree"><code><span class="cmt">// raiz: com.bank.BIAM.autorizacao</span>
+com.bank.BIAM.autorizacao
 ├─ <span class="dir">domain</span>
 │  ├─ <span class="pkg">model</span>
 │  │  ├─ <span class="file">Parceiro.java</span>        <span class="cmt">// agregado de identidade + autorizacao</span>
@@ -131,7 +131,7 @@ com.bank.piam.autorizacao
         <!-- ---------- Domínio ---------- -->
         <h2 id="dominio">Domínio</h2>
         <p>Modelo de resultado da autorização, sem dependências de framework:</p>
-        <pre><code class="language-java">package com.bank.piam.autorizacao.domain.model;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.domain.model;
 
 import java.util.List;
 
@@ -156,9 +156,9 @@ public record ResultadoAutorizacao(
         <!-- ---------- Portas ---------- -->
         <h2 id="portas">Portas (application)</h2>
         <p>Porta de entrada — o caso de uso exposto ao adaptador REST:</p>
-        <pre><code class="language-java">package com.bank.piam.autorizacao.application.port.in;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.application.port.in;
 
-import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import com.bank.BIAM.autorizacao.domain.model.ResultadoAutorizacao;
 
 public interface AutorizarParceiroUseCase {
 
@@ -168,9 +168,9 @@ public interface AutorizarParceiroUseCase {
 }</code></pre>
 
         <p>Porta de saída — o que o domínio precisa da persistência (sem citar JPA):</p>
-        <pre><code class="language-java">package com.bank.piam.autorizacao.application.port.out;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.application.port.out;
 
-import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import com.bank.BIAM.autorizacao.domain.model.ResultadoAutorizacao;
 import java.util.Optional;
 
 public interface AutorizacaoRepositoryPort {
@@ -179,12 +179,12 @@ public interface AutorizacaoRepositoryPort {
 }</code></pre>
 
         <p>Serviço de aplicação — orquestra a regra de negócio:</p>
-        <pre><code class="language-java">package com.bank.piam.autorizacao.application.service;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.application.service;
 
-import com.bank.piam.autorizacao.application.port.in.AutorizarParceiroUseCase;
-import com.bank.piam.autorizacao.application.port.out.AutorizacaoRepositoryPort;
-import com.bank.piam.autorizacao.domain.exception.IdentidadeNaoEncontradaException;
-import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import com.bank.BIAM.autorizacao.application.port.in.AutorizarParceiroUseCase;
+import com.bank.BIAM.autorizacao.application.port.out.AutorizacaoRepositoryPort;
+import com.bank.BIAM.autorizacao.domain.exception.IdentidadeNaoEncontradaException;
+import com.bank.BIAM.autorizacao.domain.model.ResultadoAutorizacao;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -213,7 +213,7 @@ public class AutorizarParceiroService implements AutorizarParceiroUseCase {
             Exemplo de entidade JPA derivada do DDL (ver
             <a href="arquitetura.html#persistencia">esquema OLTP</a>):
         </p>
-        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.out.persistence.entity;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.adapters.out.persistence.entity;
 
 import jakarta.persistence.*;
 import java.util.UUID;
@@ -239,7 +239,7 @@ public class PessoaIdpEntity {
 }</code></pre>
 
         <p>Consulta de autorização (agrega scopes e canais) e adaptador que implementa a porta:</p>
-        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.out.persistence.repository;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.adapters.out.persistence.repository;
 
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
@@ -269,10 +269,10 @@ public interface AutorizacaoQueryRepository extends Repository&lt;Object, Long&g
     Optional&lt;AutorizacaoView&gt; buscar(@Param("sub") String sub, @Param("email") String email);
 }</code></pre>
 
-        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.out.persistence;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.adapters.out.persistence;
 
-import com.bank.piam.autorizacao.application.port.out.AutorizacaoRepositoryPort;
-import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import com.bank.BIAM.autorizacao.application.port.out.AutorizacaoRepositoryPort;
+import com.bank.BIAM.autorizacao.domain.model.ResultadoAutorizacao;
 import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
@@ -318,11 +318,11 @@ public class AutorizacaoJpaAdapter implements AutorizacaoRepositoryPort {
             <code>email</code> — extraídos pelo gateway a partir do token do IDP já validado —, delega
             ao caso de uso e retorna o resultado da autorização:
         </p>
-        <pre><code class="language-java">package com.bank.piam.autorizacao.adapters.in.rest;
+        <pre><code class="language-java">package com.bank.BIAM.autorizacao.adapters.in.rest;
 
-import com.bank.piam.autorizacao.application.port.in.AutorizarParceiroUseCase;
-import com.bank.piam.autorizacao.application.port.in.AutorizarParceiroUseCase.ComandoAutorizacao;
-import com.bank.piam.autorizacao.domain.model.ResultadoAutorizacao;
+import com.bank.BIAM.autorizacao.application.port.in.AutorizarParceiroUseCase;
+import com.bank.BIAM.autorizacao.application.port.in.AutorizarParceiroUseCase.ComandoAutorizacao;
+import com.bank.BIAM.autorizacao.domain.model.ResultadoAutorizacao;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

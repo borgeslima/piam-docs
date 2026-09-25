@@ -1,7 +1,7 @@
 # partner-authorization-docs
 
 ## Purpose
-Documentação estática (HTML/CSS) do processo de autorização de parceiro do PIAM (Partner IAM), incluindo tema claro/escuro, referências normativas (RFCs) e uma área ilustrativa de implementação em Spring Boot com arquitetura hexagonal. Escopo restrito a documentação; nenhum backend executável.
+Documentação estática (HTML/CSS) do processo de autorização de parceiro do BIAM (Partner IAM), incluindo tema claro/escuro, referências normativas (RFCs) e uma área ilustrativa de implementação em Spring Boot com arquitetura hexagonal. Escopo restrito a documentação; nenhum backend executável.
 
 ## Requirements
 
@@ -32,7 +32,7 @@ O site de documentação SHALL oferecer temas claro e escuro com alternância ma
 - THEN o tema é aplicado sem flash de cor incorreta
 
 ### Requirement: Referências normativas (RFCs) {#rfc-references}
-A documentação SHALL incluir referências às RFCs relevantes ao fluxo de autorização, com link oficial e explicação de como cada uma se aplica ao PIAM, sem reproduzir o texto das RFCs.
+A documentação SHALL incluir referências às RFCs relevantes ao fluxo de autorização, com link oficial e explicação de como cada uma se aplica ao BIAM, sem reproduzir o texto das RFCs.
 
 #### Scenario:
 - WHEN o leitor consulta a seção de referências

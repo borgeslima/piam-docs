@@ -1,12 +1,12 @@
 /* ==========================================================================
-   PIAM (Partner IAM) — alternancia de tema claro/escuro
+   BIAM (Partner IAM) — alternancia de tema claro/escuro
    Persiste a escolha em localStorage; respeita prefers-color-scheme por padrao.
    O tema inicial e aplicado por um script inline no <head> (anti-flash).
    ========================================================================== */
 (function () {
     "use strict";
 
-    var STORAGE_KEY = "piam-theme";
+    var STORAGE_KEY = "BIAM-theme";
 
     function getStored() {
         try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }

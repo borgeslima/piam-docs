@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PIAM (Partner IAM) · Autorização de Parceiro</title>
+    <title>BIAM (Partner IAM) · Autorização de Parceiro</title>
     <script>
         (function () {
             try {
-                var t = localStorage.getItem("piam-theme");
+                var t = localStorage.getItem("BIAM-theme");
                 if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
                 document.documentElement.setAttribute("data-theme", t);
             } catch (e) {
@@ -23,7 +23,7 @@
     <!-- ================= SIDEBAR ================= -->
     <aside class="sidebar">
         <div class="brand">
-            <h1><span class="dot"></span> PIAM (Partner IAM)</h1>
+            <h1><span class="dot"></span> BIAM (Partner IAM)</h1>
             <span class="ver">1.0.0</span>
         </div>
         <nav>
@@ -62,16 +62,16 @@
         <!-- ---------- Visão geral ---------- -->
         <h2 id="visao">Visão geral</h2>
         <p>
-            O parceiro se autentica no seu próprio Provedor de Identidade (IDP) externo. O PIAM não
+            O parceiro se autentica no seu próprio Provedor de Identidade (IDP) externo. O BIAM não
             armazena credenciais: ele confia no <strong>IDP Subject</strong> (claim <code>sub</code>)
             e, a partir dele, resolve pessoa, usuário, tenant e os perfis/escopos por canal no banco
             transacional. No <strong>Axway</strong>, o token do IDP é então trocado (Token Exchange)
             pelo token definitivo da aplicação, já enriquecido com as claims resolvidas pela policy
-            do PIAM.
+            do BIAM.
         </p>
         <div class="note tip">
             <strong>Princípio.</strong> O IDP externo responde por <em>quem é</em> o usuário
-            (autenticação). O PIAM responde por <em>o que ele pode fazer</em> (autorização): tenant,
+            (autenticação). O BIAM responde por <em>o que ele pode fazer</em> (autorização): tenant,
             canais e escopos, além do <em>kill-switch</em> local (<code>esta_bloqueado</code>).
         </div>
 
@@ -127,8 +127,8 @@
             <div class="seq-row"><span class="seq-n">2</span><span class="seq-msg"><span class="actor">Frontend</span> <span class="op">&#8594;</span> <span class="actor">IDP (Cognito/Entra)</span>: <span class="op">Fluxo OIDC/OAuth 2.0</span><span class="seq-note">Autenticação do usuário no provedor do parceiro.</span></span></div>
             <div class="seq-row"><span class="seq-n">3</span><span class="seq-msg"><span class="actor">IDP</span> <span class="op">&#8594;</span> <span class="actor">Frontend</span>: <span class="op">subject_token (JWT com sub)</span></span></div>
             <div class="seq-row"><span class="seq-n">4</span><span class="seq-msg"><span class="actor">Frontend</span> <span class="op">&#8594;</span> <span class="actor">Axway</span>: <span class="op">POST /v1/authorization/exchange</span><span class="seq-note">grant_type=token-exchange, subject_token, subject_token_type.</span></span></div>
-            <div class="seq-row"><span class="seq-n">5</span><span class="seq-msg"><span class="actor">Axway</span> <span class="op">&#8594;</span> <span class="actor">PIAM</span>: <span class="op">Valida sub + e-mail no banco</span><span class="seq-note">Resolve pessoa/usuário/tenant e agrega scopes e canais; checa esta_bloqueado.</span></span></div>
-            <div class="seq-row"><span class="seq-n">6</span><span class="seq-msg"><span class="actor">PIAM</span> <span class="op">&#8594;</span> <span class="actor">Frontend</span>: <span class="op">Token de aplicação (JWT enriquecido)</span></span></div>
+            <div class="seq-row"><span class="seq-n">5</span><span class="seq-msg"><span class="actor">Axway</span> <span class="op">&#8594;</span> <span class="actor">BIAM</span>: <span class="op">Valida sub + e-mail no banco</span><span class="seq-note">Resolve pessoa/usuário/tenant e agrega scopes e canais; checa esta_bloqueado.</span></span></div>
+            <div class="seq-row"><span class="seq-n">6</span><span class="seq-msg"><span class="actor">BIAM</span> <span class="op">&#8594;</span> <span class="actor">Frontend</span>: <span class="op">Token de aplicação (JWT enriquecido)</span></span></div>
             <div class="seq-row"><span class="seq-n">7</span><span class="seq-msg"><span class="actor">Frontend</span> <span class="op">&#8594;</span> <span class="actor">APIs protegidas</span>: <span class="op">Authorization: Bearer &lt;token&gt;</span></span></div>
         </div>
         <div class="note">
@@ -164,7 +164,7 @@
         <h2 id="token">Token de aplicação</h2>
         <p>
             O token final é um JWT emitido pelo <strong>Axway</strong>, com as claims de identidade e
-            autorização resolvidas pela policy do PIAM no banco. Exemplo ilustrativo do payload:
+            autorização resolvidas pela policy do BIAM no banco. Exemplo ilustrativo do payload:
         </p>
         <pre><code>{
   "iss": "https://api.openapi.baas.bank.com.br",
@@ -187,7 +187,7 @@
         <h2 id="rfc">Referências normativas (RFC)</h2>
         <p>
             O fluxo se apoia em padrões abertos de identidade e autorização. Os links apontam para as
-            especificações oficiais. As descrições resumem como cada padrão se aplica ao PIAM.
+            especificações oficiais. As descrições resumem como cada padrão se aplica ao BIAM.
         </p>
         <div class="rfc-list">
             <div class="rfc">
@@ -195,7 +195,7 @@
                 <div class="rfc-body">
                     <h4><a href="https://www.rfc-editor.org/rfc/rfc6749" target="_blank" rel="noopener noreferrer">The OAuth 2.0 Authorization Framework</a></h4>
                     <p>Framework base de autorização (grant types, tokens de acesso).</p>
-                    <p class="apply"><strong>No PIAM:</strong> fundamenta o fluxo OAuth entre aplicação e IDP e o vocabulário de <code>scope</code>/<code>grant_type</code>.</p>
+                    <p class="apply"><strong>No BIAM:</strong> fundamenta o fluxo OAuth entre aplicação e IDP e o vocabulário de <code>scope</code>/<code>grant_type</code>.</p>
                 </div>
             </div>
             <div class="rfc">
@@ -203,7 +203,7 @@
                 <div class="rfc-body">
                     <h4><a href="https://www.rfc-editor.org/rfc/rfc6750" target="_blank" rel="noopener noreferrer">OAuth 2.0 Bearer Token Usage</a></h4>
                     <p>Uso de tokens do tipo Bearer em requisições HTTP.</p>
-                    <p class="apply"><strong>No PIAM:</strong> o token de aplicação é enviado às APIs via cabeçalho <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+                    <p class="apply"><strong>No BIAM:</strong> o token de aplicação é enviado às APIs via cabeçalho <code>Authorization: Bearer &lt;token&gt;</code>.</p>
                 </div>
             </div>
             <div class="rfc">
@@ -211,7 +211,7 @@
                 <div class="rfc-body">
                     <h4><a href="https://www.rfc-editor.org/rfc/rfc7519" target="_blank" rel="noopener noreferrer">JSON Web Token (JWT)</a></h4>
                     <p>Formato de token com claims assinadas.</p>
-                    <p class="apply"><strong>No PIAM:</strong> tanto o <code>subject_token</code> do IDP quanto o token de aplicação são JWTs; as claims carregam tenant, canais e escopos.</p>
+                    <p class="apply"><strong>No BIAM:</strong> tanto o <code>subject_token</code> do IDP quanto o token de aplicação são JWTs; as claims carregam tenant, canais e escopos.</p>
                 </div>
             </div>
             <div class="rfc">
@@ -219,7 +219,7 @@
                 <div class="rfc-body">
                     <h4><a href="https://www.rfc-editor.org/rfc/rfc8693" target="_blank" rel="noopener noreferrer">OAuth 2.0 Token Exchange</a></h4>
                     <p>Troca de um token por outro (<code>grant_type=token-exchange</code>).</p>
-                    <p class="apply"><strong>No PIAM:</strong> executado pelo Axway em <code>/v1/authorization/exchange</code> — troca o token do IDP pelo token de aplicação; o microsserviço apenas valida a identidade.</p>
+                    <p class="apply"><strong>No BIAM:</strong> executado pelo Axway em <code>/v1/authorization/exchange</code> — troca o token do IDP pelo token de aplicação; o microsserviço apenas valida a identidade.</p>
                 </div>
             </div>
             <div class="rfc">
@@ -227,7 +227,7 @@
                 <div class="rfc-body">
                     <h4><a href="https://www.rfc-editor.org/rfc/rfc7636" target="_blank" rel="noopener noreferrer">Proof Key for Code Exchange (PKCE)</a></h4>
                     <p>Proteção do Authorization Code para clientes públicos (SPAs).</p>
-                    <p class="apply"><strong>No PIAM:</strong> recomendado no login OIDC do frontend com o IDP, mitigando interceptação do código.</p>
+                    <p class="apply"><strong>No BIAM:</strong> recomendado no login OIDC do frontend com o IDP, mitigando interceptação do código.</p>
                 </div>
             </div>
             <div class="rfc">
@@ -235,7 +235,7 @@
                 <div class="rfc-body">
                     <h4><a href="https://openid.net/specs/openid-connect-core-1_0.html" target="_blank" rel="noopener noreferrer">OpenID Connect Core 1.0</a></h4>
                     <p>Camada de identidade sobre o OAuth 2.0 (claim <code>sub</code>, ID Token).</p>
-                    <p class="apply"><strong>No PIAM:</strong> define o <code>sub</code> usado como <code>idp_subject_id</code> para localizar a pessoa no banco.</p>
+                    <p class="apply"><strong>No BIAM:</strong> define o <code>sub</code> usado como <code>idp_subject_id</code> para localizar a pessoa no banco.</p>
                 </div>
             </div>
         </div>

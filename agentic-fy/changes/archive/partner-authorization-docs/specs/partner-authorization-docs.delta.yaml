@@ -3,7 +3,7 @@
 capability: partner-authorization-docs
 
 purpose: >
-  Documentação estática (HTML/CSS) do processo de autorização de parceiro do PIAM
+  Documentação estática (HTML/CSS) do processo de autorização de parceiro do BIAM
   (Partner IAM), incluindo tema claro/escuro, referências normativas (RFCs) e uma área
   ilustrativa de implementação em Spring Boot com arquitetura hexagonal. Escopo restrito a
   documentação; nenhum backend executável.
@@ -41,7 +41,7 @@ operations:
     title: Referências normativas (RFCs)
     statement: >
       A documentação SHALL incluir referências às RFCs relevantes ao fluxo de autorização,
-      com link oficial e explicação de como cada uma se aplica ao PIAM, sem reproduzir o
+      com link oficial e explicação de como cada uma se aplica ao BIAM, sem reproduzir o
       texto das RFCs.
     scenarios:
       - when: o leitor consulta a seção de referências

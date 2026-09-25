@@ -25,7 +25,7 @@ Plano incremental. Escopo: apenas documentação (site estático em `docs/`).
 
 - [x] 5. Seção de referências RFC
   - Blocos `.rfc` para RFC 6749, 6750, 7519, 8693, 7636 e OIDC Core, com link oficial e
-    explicação de aplicação ao PIAM (sem reproduzir texto das RFCs).
+    explicação de aplicação ao BIAM (sem reproduzir texto das RFCs).
 
 - [x] 6. Área de implementação (`implementacao.html`)
   - Estrutura hexagonal em `.tree` (domain / application / adapters in/out).
@@ -36,4 +36,4 @@ Plano incremental. Escopo: apenas documentação (site estático em `docs/`).
 - [x] 7. Navegação e consistência
   - Atualizar a sidebar de todas as páginas com os novos links (Autorização, Referências,
     Implementação) e o toggle de tema.
-  - Revisão final: consistência da marca PIAM, links internos, contraste em ambos os temas.
+  - Revisão final: consistência da marca BIAM, links internos, contraste em ambos os temas.

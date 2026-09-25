@@ -3,7 +3,7 @@
 ## Context
 - Site de documentação estático em `docs/`: `index.html` (introdução), `endpoints.html`,
   `arquitetura.html` (OLTP), com `assets/style.css` compartilhado. Marca atual:
-  **PIAM (Partner IAM)**.
+  **BIAM (Partner IAM)**.
 - O CSS já centraliza cores em `:root` (variáveis CSS), o que facilita adicionar um tema
   claro via seletor de atributo sem reescrever regras.
 - Restrição do usuário: **apenas documentação**. Os exemplos Spring Boot são conteúdo
@@ -47,7 +47,7 @@ Seções:
   - RFC 6749 (OAuth 2.0), RFC 6750 (Bearer), RFC 7519 (JWT), RFC 8693 (Token Exchange),
     RFC 7636 (PKCE), OIDC Core.
 - Cada bloco: número, título, link oficial (ietf.org / openid.net) e 1–2 linhas de como se
-  aplica ao PIAM. Atribuição por link, sem reproduzir texto das RFCs.
+  aplica ao BIAM. Atribuição por link, sem reproduzir texto das RFCs.
 
 ### 5. Área de implementação (`implementacao.html`)
 - Estrutura hexagonal (ports & adapters) em `.tree`:

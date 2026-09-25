@@ -1,11 +1,11 @@
-# PIAM (Partner IAM) — Documentação
+# BIAM (Partner IAM) — Documentação
 
 Documentação da **Estratégia de Autorização e Autenticação** para
 aplicações parceiras (Portais de Parceiros / Multi-Tenant, White Label).
 
 O processo combina a identificação dinâmica de tenant, a federação de identidade via IDP
 externo e o **Token Exchange no Axway API Gateway** para emissão do token de aplicação.
-O microsserviço PIAM atua como **policy de validação**: valida se o IDP subject é válido e
+O microsserviço BIAM atua como **policy de validação**: valida se o IDP subject é válido e
 se o e-mail existe, retornando tenant, canais e escopos. A emissão do token é feita pelo
 Axway, não pelo código.
 
